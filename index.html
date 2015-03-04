@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>MOZVR at GDC 2015</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			html, body {
+				background-color: #000;
+				color: #fff;
+				margin: 0px;
+				overflow: hidden;
+			}
+
+			canvas {
+				cursor: grab;
+			}
+
+		</style>
+	</head>
+
+	<body>
+		<script src="js/three.min.js"></script>
+		<script src="js/tween.min.js"></script>
+		<script src="js/VRControls.js"></script>
+		<script src="js/VREffect.js"></script>
+		<script src="js/DeviceOrientationControls.js"></script>
+		<script src="js/OrbitControls.js"></script>
+		<script src="js/StereoEffect.js"></script>
+		<script src="js/C4DCurveLoader.js"></script>
+		<script>
+
+		var parameters = ( function () {
+			var parameters = {};
+			var parts = window.location.search.substr( 1 ).split( '&' );
+			for ( var i = 0; i < parts.length; i ++ ) {
+				var parameter = parts[ i ].split( '=' );
+				parameters[ parameter[ 0 ] ] = parameter[ 1 ];
+			}
+			return parameters;
+		} )();
+
+		var camera, scene, renderer;
+		var controls, effect;
+		var controls2, clock = new THREE.Clock();
+
+		function init() {
+			renderer = new THREE.WebGLRenderer( { antialias: true } );
+			renderer.autoClear = false;
+			renderer.setClearColor( 0x404040 );
+
+			document.body.appendChild( renderer.domElement );
+
+			scene = new THREE.Scene();
+			scene.fog = new THREE.Fog( 0xcacfde, 0, 10000 );
+
+			dolly = new THREE.Group();
+			dolly.position.set( 10000, 10000, 10000 );
+
+			scene.add( dolly );
+
+			camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 20000 );
+			camera.position.z = 0.0001;
+			scene.add( camera );
+
+			// Effect and Controls for VR
+			var vrEffect = new THREE.VREffect( renderer );
+			var vrControls = new THREE.VRControls( camera );
+
+			// Effect for cardboard
+			var cbControls = new THREE.DeviceOrientationControls( camera );
+			var cbEffect = new THREE.StereoEffect( renderer );
+
+			// Use OrbitControls for mono mode.
+			var monoControls = new THREE.OrbitControls( camera );
+
+			function changeMode(mode) {
+				console.log('changing mode: ' + mode);
+				switch(mode) {
+					case 'mono':
+						monoControls.enabled = true;
+						effect = renderer;
+						controls = monoControls;
+						break;
+					case 'vr':
+						monoControls.enabled = false;
+						controls = vrControls;
+						effect = vrEffect;
+						break;
+					case 'stereo':
+						controls = cbControls;
+						effect = cbEffect;
+						break;
+				}
+				effect.setSize( window.innerWidth, window.innerHeight );
+			};
+
+			if (parameters.mode) {
+				changeMode(parameters.mode);
+			} else {
+				changeMode('mono');
+			};
+
+			function enterVr() {
+				// check to see if we are in iframe before setting fullscreen.
+				if(!window.frameElement) {
+					changeMode('vr');
+					effect.setFullScreen( true );
+				}
+			};
+
+			function handleFsChange(e) {
+	      var fullscreenElement = document.fullscreenElement ||
+	        document.mozFullScreenElement ||
+	        document.webkitFullscreenElement;
+
+	      if (fullscreenElement == null) {
+	      	changeMode('mono');
+	      }
+	    };
+
+	    document.addEventListener('mozfullscreenchange', handleFsChange);
+  		document.addEventListener('webkitfullscreenchange', handleFsChange)
+			document.body.addEventListener( 'dblclick', enterVr);
+
+			function handlePostmessage(e) {
+				if (e.data.mode) {
+					changeMode(e.data.mode);
+				}
+				if (e.data.control) {
+					switch(e.data.control) {
+						case 'togglePlay':
+							break;
+						case 'rewind':
+							break;
+					}
+				}
+		  }
+
+	  	window.addEventListener('message', handlePostmessage);
+			window.addEventListener( 'resize', onWindowResize, false );
+
+
+			//background sphere
+			var geometry = new THREE.SphereGeometry( 300, 60, 40 );
+			geometry.applyMatrix( new THREE.Matrix4().makeScale( -1, 1, 1 ) );
+			var material = new THREE.MeshBasicMaterial( {
+				map: THREE.ImageUtils.loadTexture( 'images/mozgdc-2.jpg' )
+			} );
+			var mesh = new THREE.Mesh( geometry, material );
+			scene.add(mesh);
+
+
+			animate()
+
+		}
+
+		function onWindowResize() {
+			camera.aspect = window.innerWidth / window.innerHeight;
+			camera.updateProjectionMatrix();
+			effect.setSize( window.innerWidth, window.innerHeight );
+		};
+
+		function animate( time ) {
+
+			requestAnimationFrame( animate );
+			TWEEN.update();
+
+			effect.render( scene, camera );
+
+		}
+
+		init();
+
+		</script>
+
+	</body>
+</html>
